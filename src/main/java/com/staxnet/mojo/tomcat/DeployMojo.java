@@ -4,25 +4,23 @@ package com.staxnet.mojo.tomcat;
 //under the Apache License, Version 2.0. You may obtain a copy of the License at
 //       http://www.apache.org/licenses/LICENSE-2.0 
 
+import com.cloudbees.api.ApplicationDeployArchiveResponse;
+import com.cloudbees.api.BeesClient;
+import com.cloudbees.api.BeesClientConfiguration;
+import com.cloudbees.api.HashWriteProgress;
+import com.staxnet.appserver.config.AppConfig;
+import com.staxnet.appserver.config.AppConfigHelper;
+import com.staxnet.appserver.utils.ZipHelper;
+import com.staxnet.appserver.utils.ZipHelper.ZipEntryHandler;
+import org.apache.maven.plugin.MojoExecutionException;
+import org.apache.maven.plugin.MojoFailureException;
+
 import java.io.*;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
-
-import com.cloudbees.api.ApplicationDeployArchiveResponse;
-import com.cloudbees.api.BeesClient;
-import com.cloudbees.api.BeesClientConfiguration;
-import com.cloudbees.api.HashWriteProgress;
-
-import org.apache.maven.plugin.MojoExecutionException;
-import org.apache.maven.plugin.MojoFailureException;
-
-import com.staxnet.appserver.config.AppConfig;
-import com.staxnet.appserver.config.AppConfigHelper;
-import com.staxnet.appserver.utils.ZipHelper;
-import com.staxnet.appserver.utils.ZipHelper.ZipEntryHandler;
 
 /**
  * Deploys the current project package to the Stax service.
@@ -176,6 +174,13 @@ public class DeployMojo extends AbstractI18NMojo
      */
     private String containerType;
 
+
+    /**
+     * Classifier
+     * @parameter expression="${bees.classifier}"
+     */
+    private String classifier;
+
     /**
      * Gets whether this project uses WAR packaging.
      * 
@@ -191,6 +196,14 @@ public class DeployMojo extends AbstractI18NMojo
      */
     public void execute() throws MojoExecutionException, MojoFailureException
     {
+        if (classifier!=null && !classifier.equals("")) {
+            String absoluteName=warFile.getAbsolutePath();
+            String nameWithoutSuffix=absoluteName.substring(0,absoluteName.length()-1-packaging.length());
+            String nameWithClassifier= nameWithoutSuffix+"-"+classifier+"."+packaging;
+            warFile = new File(nameWithClassifier);
+        }
+
+
         // Read SDK config file
         Properties properties = getConfigProperties();
         // Initialize the parameter values (to allow system property overrides
@@ -210,6 +223,7 @@ public class DeployMojo extends AbstractI18NMojo
             try {
                 fstream = new FileOutputStream(deployFile);
                 ZipOutputStream zos = new ZipOutputStream(fstream);
+
                 ZipHelper.addFileToZip(warFile, "webapp.war", zos);
                 ZipHelper.addFileToZip(appConfig,
                                        "META-INF/stax-application.xml", zos);
@@ -225,6 +239,7 @@ public class DeployMojo extends AbstractI18NMojo
         else
         {
             deployFile = warFile;
+
         }
 
         // deploy the application to the server
@@ -259,6 +274,7 @@ public class DeployMojo extends AbstractI18NMojo
             System.out.println(String.format(
                                              "Deploying application %s (environment: %s)",
                                              appid, environment));
+            System.out.println("File: "+warFile);
 
             BeesClientConfiguration beesClientConfiguration = new BeesClientConfiguration(apiurl, apikey, secret, "xml", "1.0");
 
